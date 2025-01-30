@@ -10,12 +10,29 @@ import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 
+/**
+ * Interface defining the API service for ProductX.
+ */
 interface ProductXApiService {
 
+    /**
+     * Fetches the list of products.
+     *
+     * @return A [Response] containing a [ProductResponseDto] object.
+     */
     @GET("public/get")
     suspend fun getProducts(): Response<ProductResponseDto>
 
-
+    /**
+     * Adds a new product.
+     *
+     * @param productName The name of the product as a [RequestBody].
+     * @param productType The type of the product as a [RequestBody].
+     * @param price The price of the product as a [RequestBody].
+     * @param tax The tax on the product as a [RequestBody].
+     * @param files A list of image files as [MultipartBody.Part].
+     * @return A [Response] containing an [AddingProductResponseDto] object.
+     */
     @Multipart
     @POST("public/add")
     suspend fun addProduct(

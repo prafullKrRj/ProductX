@@ -2,7 +2,6 @@ package com.prafullkumar.productx.ui.screens.addProduct
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -19,36 +18,73 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * ViewModel for adding a product.
+ *
+ * @property repository The repository to handle product listing operations.
+ * @property context The context to access application resources.
+ */
 class AddProductViewModel(
     private val repository: ProductListingRepository,
     private val context: Context
 ) : ViewModel() {
 
+    // StateFlow to manage loading state
     private val _isLoading = MutableStateFlow(false)
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    private val _isSuccess = MutableStateFlow(false)
-
     val isLoading = _isLoading.asStateFlow()
+
+    // StateFlow to manage error messages
+    private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage = _errorMessage.asStateFlow()
+
+    // StateFlow to manage success state
+    private val _isSuccess = MutableStateFlow(false)
     val isSuccess = _isSuccess.asStateFlow()
 
+    // Mutable state for price and tax
     var price by mutableStateOf("")
     var tax by mutableStateOf("")
+
+    // StateFlow to manage product details
     private val _product = MutableStateFlow(Product())
     val product = _product.asStateFlow()
 
+    // StateFlow to manage selected image URIs
+    private val _selectedImageUri = MutableStateFlow<Uri?>(Uri.EMPTY)
+    val selectedImageUris = _selectedImageUri.asStateFlow()
+
+    /**
+     * Updates the product name.
+     *
+     * @param name The new product name.
+     */
     fun updateProductName(name: String) {
         _product.update { it.copy(productName = name) }
     }
 
+    /**
+     * Updates the product type.
+     *
+     * @param type The new product type.
+     */
     fun updateProductType(type: String) {
         _product.update { it.copy(productType = type) }
     }
 
+    /**
+     * Updates the price.
+     *
+     * @param _price The new price.
+     */
     fun updatePrice(_price: String) {
         price = _price
     }
 
+    /**
+     * Updates the tax.
+     *
+     * @param _tax The new tax.
+     */
     fun updateTax(_tax: String) {
         tax = _tax
     }
@@ -59,17 +95,18 @@ class AddProductViewModel(
         tax = ""
     }
 
-    private val _selectedImageUris = MutableStateFlow<Uri?>(Uri.EMPTY)
-    val selectedImageUris = _selectedImageUris.asStateFlow()
-
+    /**
+     * Adds an image URI to the selected images.
+     *
+     * @param uri The URI of the image to add.
+     */
     fun addImageUri(uri: Uri) {
-        _selectedImageUris.value = uri
+        _selectedImageUri.value = uri
     }
 
-    fun clearImages() {
-        _selectedImageUris.value = Uri.EMPTY
-    }
-
+    /**
+     * Adds a product using the repository.
+     */
     fun addProduct() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -79,11 +116,10 @@ class AddProductViewModel(
                     product.value.copy(
                         price = if (price.isEmpty()) 0.0 else price.toDoubleOrNull(),
                         tax = if (tax.isEmpty()) 0.0 else tax.toDoubleOrNull()
-                    ), _selectedImageUris.value
+                    ), _selectedImageUri.value
                 ).collect { response ->
                     when (response) {
                         is BaseResponse.Error -> {
-                            Log.e("AddProductViewModel", "Failed ${response.message}")
                             _errorMessage.value = "Failed to add product"
                         }
 

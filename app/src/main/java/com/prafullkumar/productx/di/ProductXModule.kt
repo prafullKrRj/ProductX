@@ -14,19 +14,48 @@ import org.koin.dsl.module
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
+/**
+ * Koin module for providing dependencies related to ProductX.
+ */
 val productXModule = module {
+    /**
+     * Provides a singleton instance of ProductXApiService.
+     */
     single<ProductXApiService> {
-        Retrofit.Builder().baseUrl("https://app.getswipe.in/api/").addConverterFactory(
-            GsonConverterFactory.create()
-        ).build().create(ProductXApiService::class.java)
+        Retrofit.Builder()
+            .baseUrl("https://app.getswipe.in/api/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(ProductXApiService::class.java)
     }
+
+    /**
+     * Provides a singleton instance of ProductDao.
+     */
     single<ProductDao> {
         Room.databaseBuilder(androidContext(), ProductDatabase::class.java, "product_database")
-            .build().productDao()
+            .build()
+            .productDao()
     }
+
+    /**
+     * Provides a singleton instance of ProductListingRepository.
+     */
     single<ProductListingRepository> {
-        ProductListingRepositoryImpl(apiService = get(), productDao = get(), androidContext())
+        ProductListingRepositoryImpl(
+            apiService = get(),
+            productDao = get(),
+            context = androidContext()
+        )
     }
+
+    /**
+     * Provides a ViewModel instance for ProductListingViewModel.
+     */
     viewModel { ProductListingViewModel(repository = get()) }
-    viewModel { AddProductViewModel(repository = get(), androidContext()) }
+
+    /**
+     * Provides a ViewModel instance for AddProductViewModel.
+     */
+    viewModel { AddProductViewModel(repository = get(), context = androidContext()) }
 }

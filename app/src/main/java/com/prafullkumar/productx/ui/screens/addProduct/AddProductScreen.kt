@@ -41,8 +41,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -51,7 +49,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,7 +56,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
 import coil.compose.rememberImagePainter
 import com.prafullkumar.productx.domain.model.Product
 import com.yalantis.ucrop.UCrop
@@ -67,16 +63,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.File
 
-
-private fun startCrop(context: Context, sourceUri: Uri, destinationUri: Uri) {
-    val intent = UCrop.of(sourceUri, destinationUri)
-        .withAspectRatio(1f, 1f) // Force 1:1 ratio
-        .withMaxResultSize(1080, 1080)
-        .getIntent(context)
-
-    (context as? Activity)?.startActivityForResult(intent, UCrop.REQUEST_CROP)
-}
-
+// Function to create an Intent for UCrop to crop an image with a 1:1 aspect ratio and a maximum size of 1080x1080 pixels.
 private fun createUCropIntent(context: Context, sourceUri: Uri, destinationUri: Uri): Intent {
     return UCrop.of(sourceUri, destinationUri)
         .withAspectRatio(1f, 1f) // Force 1:1 aspect ratio
@@ -87,7 +74,7 @@ private fun createUCropIntent(context: Context, sourceUri: Uri, destinationUri: 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddProductScreen(
-    navHostController: NavHostController, viewModel: AddProductViewModel
+    viewModel: AddProductViewModel, onDismiss: () -> Unit, onProductAdded: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
@@ -97,15 +84,14 @@ fun AddProductScreen(
     val isSuccess by viewModel.isSuccess.collectAsState()
     val context = LocalContext.current
     val selectedImageUris by viewModel.selectedImageUris.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-
 
     LaunchedEffect(isSuccess) {
         if (isSuccess) {
-            snackbarHostState.showSnackbar("Product Added")
-            navHostController.popBackStack()
+            onProductAdded()
         }
     }
+
+    // Launcher for cropping an image using UCrop.
     val cropImageLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
@@ -118,18 +104,19 @@ fun AddProductScreen(
             }
         }
 
+    // Launcher for picking an image from the device's storage.
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
             val destinationUri = Uri.fromFile(File(context.cacheDir, "croppedImage.jpg"))
             cropImageLauncher.launch(createUCropIntent(context, uri, destinationUri))
-//            startCrop(context, uri, destinationUri) // Start uCrop with 1:1 ratio
         } else {
             Toast.makeText(context, "Failed to load image", Toast.LENGTH_SHORT).show()
         }
     }
 
+    // State for managing the bottom sheet scaffold.
     val sheetState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
             initialValue = SheetValue.Expanded, skipHiddenState = false
@@ -150,8 +137,7 @@ fun AddProductScreen(
             selectedImageUris = selectedImageUris,
             isLoading = isLoading,
             sheetState = sheetState,
-            navHostController = navHostController,
-            snackbarHostState = snackbarHostState
+            onDismiss = onDismiss,
         )
     }
 }
@@ -168,12 +154,9 @@ fun AddProductBottomSheet(
     selectedImageUris: Uri?,
     isLoading: Boolean,
     sheetState: BottomSheetScaffoldState,
-    navHostController: NavHostController,
-    snackbarHostState: SnackbarHostState
+    onDismiss: () -> Unit,
 ) {
-    BottomSheetScaffold(snackbarHost = {
-        SnackbarHost(snackbarHostState)
-    },
+    BottomSheetScaffold(
         sheetContent = {
             Column(
                 modifier = Modifier
@@ -197,7 +180,7 @@ fun AddProductBottomSheet(
         sheetShape = BottomSheetDefaults.ExpandedShape,
         sheetDragHandle = {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(enabled = !isLoading, onClick = navHostController::popBackStack) {
+                IconButton(enabled = !isLoading, onClick = onDismiss) {
                     Icon(
                         Icons.Default.Close, contentDescription = null
                     )

@@ -10,6 +10,10 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 
+/**
+ * Application class for ProductX.
+ * Initializes Koin for dependency injection and sets up notification channels.
+ */
 class ProductXApplication : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -21,6 +25,11 @@ class ProductXApplication : Application() {
         createNotificationChannel()
     }
 
+    /**
+     * Sends a notification when a product is added.
+     *
+     * @param productName The name of the product that was added.
+     */
     fun sendProductAddedNotification(productName: String) {
         val notificationManager =
             getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -34,6 +43,9 @@ class ProductXApplication : Application() {
         notificationManager.notify(notificationId, notification)
     }
 
+    /**
+     * Creates a notification channel for product addition notifications.
+     */
     private fun createNotificationChannel() {
         val name = "Product Additions"
         val descriptionText = "Notifications for added products"

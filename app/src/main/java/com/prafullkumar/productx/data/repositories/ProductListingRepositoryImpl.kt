@@ -2,8 +2,6 @@ package com.prafullkumar.productx.data.repositories
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
-import coil.network.HttpException
 import com.prafullkumar.productx.data.local.ProductDao
 import com.prafullkumar.productx.data.mapper.ProductEntityMapper
 import com.prafullkumar.productx.data.mapper.ProductResponseMapper
@@ -19,9 +17,17 @@ import kotlinx.coroutines.flow.map
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.HttpException
 import java.io.File
 import java.io.IOException
 
+/**
+ * Implementation of the ProductListingRepository interface.
+ *
+ * @property apiService The API service used to fetch and add products.
+ * @property productDao The DAO used to interact with the local database.
+ * @property context The context used to access resources and files.
+ */
 class ProductListingRepositoryImpl(
     private val apiService: ProductXApiService,
     private val productDao: ProductDao,
@@ -31,15 +37,21 @@ class ProductListingRepositoryImpl(
     private val productResponseMapper = ProductResponseMapper()
     private val productEntityMapper = ProductEntityMapper()
 
+    /**
+     * Fetches products from the API and updates the local database.
+     * If the API call fails, it returns cached products from the local database.
+     *
+     * @return A Flow emitting the state of the product fetching process.
+     */
     override fun getProducts(): Flow<BaseResponse<List<Product>>> = flow {
         emit(BaseResponse.Loading)
         try {
             val apiResponse = apiService.getProducts()
             if (apiResponse.isSuccessful && apiResponse.body() != null) {
-                Log.d("ProductListingRepositoryImpl", "getProducts: ${apiResponse.body()}")
+
                 val products =
                     apiResponse.body()!!.map { productResponseMapper.mapToDomainModel(it) }
-                Log.d("ProductListingRepositoryImpl", "getProducts: $products")
+
                 productDao.replaceAllProducts(products.map {
                     productEntityMapper.mapFromDomainModel(
                         it
@@ -52,7 +64,8 @@ class ProductListingRepositoryImpl(
                     .firstOrNull()
                 emit(
                     BaseResponse.Error(
-                        message = "Failed to load from server", cachedData = cachedProducts
+                        message = "Failed to load from server",
+                        cachedData = cachedProducts
                     )
                 )
             }
@@ -65,14 +78,18 @@ class ProductListingRepositoryImpl(
                 is HttpException -> "Server error"
                 else -> "Unknown error"
             }
-            emit(
-                BaseResponse.Error(
-                    message = errorMessage, cachedData = cachedProducts
-                )
-            )
+            emit(BaseResponse.Error(message = errorMessage, cachedData = cachedProducts))
         }
     }
 
+    /**
+     * Adds a product to the server.
+     * If an image URI is provided, it is included in the request.
+     *
+     * @param product The product to be added.
+     * @param imageUri The URI of the image to be uploaded with the product.
+     * @return A Flow emitting the state of the product adding process.
+     */
     override fun addProduct(
         product: Product, imageUri: Uri?
     ): Flow<BaseResponse<AddingProductResponseDto>> {
@@ -108,6 +125,13 @@ class ProductListingRepositoryImpl(
     }
 }
 
+/**
+ * Creates a temporary file from a URI.
+ *
+ * @param context The context used to access resources and files.
+ * @param uri The URI of the file to be converted.
+ * @return The temporary file created from the URI.
+ */
 fun getFileFromUriTemp(context: Context, uri: Uri): File? {
     val inputStream = context.contentResolver.openInputStream(uri) ?: return null
     val tempFile = File.createTempFile("cropped_", ".jpg", context.cacheDir)

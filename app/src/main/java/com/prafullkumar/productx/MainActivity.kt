@@ -60,11 +60,13 @@ fun NavGraph() {
     val scope = rememberCoroutineScope()
     Scaffold(Modifier.fillMaxSize(), snackbarHost = {
         SnackbarHost(snackBarHost)
-    }) { innerPadding ->
+    }) { _ ->
         NavHost(
             navController = navController,
             startDestination = Screens.HomeScreen,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding()
         ) {
             composable<Screens.HomeScreen> {
                 ProductListingScreen(navController, getViewModel())

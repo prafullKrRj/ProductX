@@ -91,7 +91,6 @@ fun AddProductScreen(
         }
     }
 
-    // Launcher for cropping an image using UCrop.
     val cropImageLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {

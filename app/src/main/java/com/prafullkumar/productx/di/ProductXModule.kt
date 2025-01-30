@@ -28,5 +28,5 @@ val productXModule = module {
         ProductListingRepositoryImpl(apiService = get(), productDao = get(), androidContext())
     }
     viewModel { ProductListingViewModel(repository = get()) }
-    viewModel { AddProductViewModel(repository = get()) }
+    viewModel { AddProductViewModel(repository = get(), androidContext()) }
 }

@@ -1,5 +1,8 @@
 package com.prafullkumar.productx.ui.screens.addProduct
 
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
@@ -38,6 +41,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -46,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,8 +62,27 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import coil.compose.rememberImagePainter
 import com.prafullkumar.productx.domain.model.Product
+import com.yalantis.ucrop.UCrop
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.io.File
+
+
+private fun startCrop(context: Context, sourceUri: Uri, destinationUri: Uri) {
+    val intent = UCrop.of(sourceUri, destinationUri)
+        .withAspectRatio(1f, 1f) // Force 1:1 ratio
+        .withMaxResultSize(1080, 1080)
+        .getIntent(context)
+
+    (context as? Activity)?.startActivityForResult(intent, UCrop.REQUEST_CROP)
+}
+
+private fun createUCropIntent(context: Context, sourceUri: Uri, destinationUri: Uri): Intent {
+    return UCrop.of(sourceUri, destinationUri)
+        .withAspectRatio(1f, 1f) // Force 1:1 aspect ratio
+        .withMaxResultSize(1080, 1080)
+        .getIntent(context)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,20 +97,39 @@ fun AddProductScreen(
     val isSuccess by viewModel.isSuccess.collectAsState()
     val context = LocalContext.current
     val selectedImageUris by viewModel.selectedImageUris.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+
     LaunchedEffect(isSuccess) {
         if (isSuccess) {
+            snackbarHostState.showSnackbar("Product Added")
             navHostController.popBackStack()
         }
     }
+    val cropImageLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val croppedUri = result.data?.let { UCrop.getOutput(it) }
+                croppedUri?.let {
+                    viewModel.addImageUri(it)
+                }
+            } else {
+                Toast.makeText(context, "Failed to crop image", Toast.LENGTH_SHORT).show()
+            }
+        }
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            viewModel.addImageUri(uri)
+            val destinationUri = Uri.fromFile(File(context.cacheDir, "croppedImage.jpg"))
+            cropImageLauncher.launch(createUCropIntent(context, uri, destinationUri))
+//            startCrop(context, uri, destinationUri) // Start uCrop with 1:1 ratio
         } else {
             Toast.makeText(context, "Failed to load image", Toast.LENGTH_SHORT).show()
         }
     }
+
     val sheetState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
             initialValue = SheetValue.Expanded, skipHiddenState = false
@@ -106,7 +150,8 @@ fun AddProductScreen(
             selectedImageUris = selectedImageUris,
             isLoading = isLoading,
             sheetState = sheetState,
-            navHostController = navHostController
+            navHostController = navHostController,
+            snackbarHostState = snackbarHostState
         )
     }
 }
@@ -123,26 +168,30 @@ fun AddProductBottomSheet(
     selectedImageUris: Uri?,
     isLoading: Boolean,
     sheetState: BottomSheetScaffoldState,
-    navHostController: NavHostController
+    navHostController: NavHostController,
+    snackbarHostState: SnackbarHostState
 ) {
-    BottomSheetScaffold(sheetContent = {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(scrollState),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            ProductDetailsFields(product = product, viewModel = viewModel)
-            UploadImageButton(scope = scope, photoPickerLauncher = photoPickerLauncher)
-            ErrorMessageText(errorMessage = errorMessage)
-            ProductImage(selectedImageUris = selectedImageUris)
-            AddProductButton(
-                isLoading = isLoading, product = product, viewModel = viewModel
-            )
-        }
+    BottomSheetScaffold(snackbarHost = {
+        SnackbarHost(snackbarHostState)
     },
+        sheetContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(scrollState),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ProductDetailsFields(product = product, viewModel = viewModel)
+                UploadImageButton(scope = scope, photoPickerLauncher = photoPickerLauncher)
+                ErrorMessageText(errorMessage = errorMessage)
+                ProductImage(selectedImageUris = selectedImageUris)
+                AddProductButton(
+                    isLoading = isLoading, product = product, viewModel = viewModel
+                )
+            }
+        },
         scaffoldState = sheetState,
         sheetSwipeEnabled = false,
         sheetShape = BottomSheetDefaults.ExpandedShape,
@@ -188,7 +237,7 @@ fun ProductDetailsFields(product: Product, viewModel: AddProductViewModel) {
         value = viewModel.tax,
         label = "Tax",
         onValueChange = viewModel::updateTax,
-        suffix = "%",
+        prefix = "₹",
         keyboardType = KeyboardType.Decimal
     )
 }
@@ -202,8 +251,7 @@ fun ProductDetailsTextField(
     prefix: String = "",
     keyboardType: KeyboardType = KeyboardType.Text
 ) {
-    OutlinedTextField(
-        label = { Text(label) },
+    OutlinedTextField(label = { Text(label) },
         value = value,
         onValueChange = onValueChange,
         shape = RoundedCornerShape(30),
@@ -212,8 +260,7 @@ fun ProductDetailsTextField(
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         suffix = { Text(suffix) },
-        prefix = { Text(prefix) }
-    )
+        prefix = { Text(prefix) })
 }
 
 @Composable

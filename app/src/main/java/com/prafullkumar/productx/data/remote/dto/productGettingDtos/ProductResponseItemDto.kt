@@ -5,7 +5,7 @@ import com.google.gson.annotations.SerializedName
 data class ProductResponseItemDto(
     @SerializedName("image")
     val image: String?,
-    @SerializedName("mrp")
+    @SerializedName("price")
     val price: Double?,
     @SerializedName("product_name")
     val product_name: String?,
